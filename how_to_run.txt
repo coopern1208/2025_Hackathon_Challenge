@@ -1,5 +1,0 @@
-
-open terminal in directory with qasm_parser.py and the qasm files
-
-then run in terminal:
- python qasm_parser.py "example.qasm"

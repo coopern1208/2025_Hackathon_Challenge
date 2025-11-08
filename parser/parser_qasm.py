@@ -13,6 +13,7 @@ def get_bit_info(bit):
 class QASM_Parser:
     def __init__(self, qasm_file):
         self.qasm_file = qasm_file
+        self.version = None
         self.gate_id_counter = 0
         self.gates = []
         self.bits = {}
@@ -24,29 +25,74 @@ class QASM_Parser:
             self.qasm_code = file.read()
         
         for raw_line in self.qasm_code.split('\n'):
+            line = raw_line.split('//')[0].strip()
+            if not line:
+                continue
+            if line.startswith('OPENQASM'):
+                parts = line.split()
+                if len(parts) > 1:
+                    self.version = parts[1].rstrip(';')
+                break
+
+        for raw_line in self.qasm_code.split('\n'):
             graph_updated = False
             line = raw_line.split('//')[0].strip()
             if not line:
                 continue
 
-            if line.startswith('qreg'):  
-                match = re.search(r'qreg\s+\w+\[(\d+)\]', line)
-                if match:
-                    num_qubits = int(match.group(1))
-                for i in range(num_qubits):
-                    self.bits[f'q{i}'] = {"id": f'q{i}', 
-                                          "type": "qubit", 
-                                          "name": f'q{i}', 
-                                          "last_gate_connected": None}
-            if line.startswith('creg'):
-                match = re.search(r'creg\s+\w+\[(\d+)\]', line)
-                if match:
-                    num_classical_bits = int(match.group(1))
-                    for i in range(num_classical_bits):
-                        self.bits[f'c{i}'] = {"id": f'c{i}', 
-                                              "type": "classical_bit", 
-                                              "name": f'c{i}', 
-                                              "last_gate_connected": None}
+            if self.version is None:
+                continue
+            
+            if self.version == "2.0":
+                if line.startswith('qreg'):
+                    match = re.search(r'qreg\s+([a-zA-Z_]\w*)\[(\d+)\]', line)
+                    if match:
+                        register_name = match.group(1)
+                        num_qubits = int(match.group(2))
+                        for i in range(num_qubits):
+                            bit_id = f'{register_name}{i}'
+                            self.bits[bit_id] = {
+                                "id": bit_id,
+                                "type": "qubit",
+                                "name": bit_id,
+                                "last_gate_connected": None
+                            }
+                if line.startswith('creg'):
+                    match = re.search(r'creg\s+([a-zA-Z_]\w*)\[(\d+)\]', line)
+                    if match:
+                        register_name = match.group(1)
+                        num_classical_bits = int(match.group(2))
+                        for i in range(num_classical_bits):
+                            bit_id = f'{register_name}{i}'
+                            self.bits[bit_id] = {
+                                "id": bit_id,
+                                "type": "classical_bit",
+                                "name": bit_id,
+                                "last_gate_connected": None
+                            }
+
+            elif self.version == "3.0":
+                if line.startswith('qubit'):
+                    match_name_first = re.search(r'qubit\s+([a-zA-Z_]\w*)\[(\d+)\]', line)
+                    match_size_first = re.search(r'qubit\[(\d+)\]\s+([a-zA-Z_]\w*)', line)
+
+                    if match_name_first:
+                        register_name = match_name_first.group(1)
+                        size = int(match_name_first.group(2))
+                    elif match_size_first:
+                        size = int(match_size_first.group(1))
+                        register_name = match_size_first.group(2)
+                    else:
+                        continue
+
+                    for i in range(size):
+                        bit_id = f'{register_name}{i}'
+                        self.bits[bit_id] = {
+                            "id": bit_id,
+                            "type": "qubit",
+                            "name": bit_id,
+                            "last_gate_connected": None
+                        }
         return self.bits
 
     def get_gates(self):
@@ -63,9 +109,14 @@ class QASM_Parser:
             if line.startswith('//'): continue
             if line.startswith('OPENQASM'): continue
             if line.startswith('include'): continue
-            if line.startswith('qreg'): continue
-            if line.startswith('creg'): continue
-            # Remove comments and strip line
+
+            if self.version == "2.0":
+                if line.startswith('qreg'): continue
+                if line.startswith('creg'): continue
+                if 'qubit' in line: continue
+
+            elif self.version == "3.0":
+                if 'qubit' in line: continue
 
             line_counter += 1
 
@@ -85,6 +136,7 @@ class QASM_Parser:
                     bit = parts[2].strip().rstrip(';')
                     
                     letter, number = get_bit_info(bit)
+                    
                     if letter is None or number is None:
                         raise ValueError(f"Unrecognized bit format: '{bit}'")
 
@@ -127,7 +179,6 @@ class QASM_Parser:
                     letter2, number2 = get_bit_info(bit2)
                     if None in (letter1, number1, letter2, number2):
                         raise ValueError(f"Unrecognized bit format in line: '{line}'")
-                    #print(gate_type, gate_name, gate_info, letter1, number1, letter2, number2)
 
                     gate_id = f"g_{self.gate_id_counter}"
                     self.gates.append({"id": gate_id, "type": gate_type, "name": gate_name})
@@ -175,9 +226,11 @@ class QASM_Parser:
                     gate_name = parts[0]
                     bit = parts[1].strip().rstrip(';')
                     letter, number = get_bit_info(bit)
+                    
                     if letter is None or number is None:
+                        print(line)
                         raise ValueError(f"Unrecognized bit format: '{bit}'")
-                    #print(gate_type, gate_name, letter, number)
+
                     gate_id = f"g_{self.gate_id_counter}"
                     self.gates.append({"id": gate_id, 
                                        "type": gate_type, 
@@ -215,7 +268,6 @@ class QASM_Parser:
                     letter2, number2 = get_bit_info(bit2)
                     if None in (letter1, number1, letter2, number2):
                         raise ValueError(f"Unrecognized bit format in line: '{line}'")
-                    #print(gate_type, gate_name, letter1, number1, letter2, number2)
                     gate_id = f"g_{self.gate_id_counter}"
                     self.gates.append({"id": gate_id, "type": gate_type, "name": gate_name})
                     self.gate_id_counter += 1
@@ -251,14 +303,14 @@ class QASM_Parser:
             if graph_updated:
                 self.timestamps[line_counter] = copy.deepcopy(current_graph)
                 
-    def save_json(self):
+    def save_json(self, filename):
         import json
-        with open("parser/graph.json", "w") as json_file:
+        with open(filename, "w") as json_file:
             json.dump(self.timestamps, json_file, indent=4)
                 
 
 if __name__ == "__main__":
-    parser = QASM_Parser("parser/5.qasm")
+    parser = QASM_Parser("parser/3.qasm")
     parser.get_bits()
     parser.get_gates()
-    parser.save_json()
+    parser.save_json("parser/graph3.json")
