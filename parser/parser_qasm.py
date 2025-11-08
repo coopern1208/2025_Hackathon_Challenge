@@ -251,11 +251,14 @@ class QASM_Parser:
             if graph_updated:
                 self.timestamps[line_counter] = copy.deepcopy(current_graph)
                 
+    def save_json(self):
+        import json
+        with open("parser/graph.json", "w") as json_file:
+            json.dump(self.timestamps, json_file, indent=4)
                 
-                
-
 
 if __name__ == "__main__":
     parser = QASM_Parser("parser/5.qasm")
     parser.get_bits()
     parser.get_gates()
+    parser.save_json()

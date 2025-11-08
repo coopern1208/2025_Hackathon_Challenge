@@ -26,3 +26,20 @@
   font-family: inherit;
 }
 
+.graph-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.graph-controls label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.graph-controls input[type="range"] {
+  flex: 1;
+  min-width: 200px;
+}
+

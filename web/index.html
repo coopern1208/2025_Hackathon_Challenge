@@ -13,12 +13,25 @@
     </header>
     <main class="site-main">
       <div class="content">
-        <p class="intro">
-          The graph below shows a simple heterogeneous representation of a Bell-state quantum circuit.
-          Nodes capture qubits, gates, and measurements; edges describe how they connect.
-        </p>
         <div class="graph-wrapper">
           <svg id="graph" role="img" aria-label="Quantum circuit heterogeneous graph"></svg>
+          <div class="graph-controls">
+            <label for="time-slider">
+              Time step:
+              <span id="time-step-value">0</span>
+            </label>
+            <input
+              type="range"
+              id="time-slider"
+              name="time-slider"
+              min="0"
+              max="0"
+              value="0"
+              step="1"
+              disabled
+              aria-describedby="time-step-value"
+            />
+          </div>
         </div>
       </div>
     </main>
